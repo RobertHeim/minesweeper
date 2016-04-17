@@ -1,10 +1,14 @@
 package de.robert_heim.minesweeper;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import de.robert_heim.minesweeper.Game.EventHook;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -27,10 +31,11 @@ import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
+import de.robert_heim.minesweeper.Game.EventHook;
 
 public class Main extends Application {
   
-  public static MenuItem menuNew = new MenuItem("New");
+  public static MenuItem menuNew = new MenuItem(Lang.t("New"));
   
   private Stage primaryStage;
   
@@ -51,32 +56,30 @@ public class Main extends Application {
     statusBorderPane.setCenter(gameArea);
     rootBorderPane.setBackground(new Background(new BackgroundFill(
         Color.GAINSBORO, CornerRadii.EMPTY, Insets.EMPTY)));
-        
+    
     MenuBar menuBar = new MenuBar();
     
     // Menu
     
-    // -- FILE --
-    menuNew.setOnAction(e -> deal(gameArea, lastGameConfig.orElse(GameConfig.beginner())));
-    
-    MenuItem menuQuit = new MenuItem("Quit");
+    MenuItem menuQuit = new MenuItem(Lang.t("Quit"));
     menuQuit.setOnAction(e -> byebye());
     
-    Menu menuFile = new Menu("File");
-    menuFile.getItems().addAll(menuNew, new SeparatorMenuItem(), menuQuit);
-    
-    // -- EDIT --
-    MenuItem menuBeginner = new MenuItem("Beginner");
+    // -- Options --
+    MenuItem menuBeginner = new MenuItem(Lang.t("Beginner"));
     menuBeginner.setOnAction(e -> deal(gameArea, GameConfig.beginner()));
-    MenuItem menuIntermediate = new MenuItem("Intermediate");
+    MenuItem menuIntermediate = new MenuItem(Lang.t("Intermediate"));
     menuIntermediate.setOnAction(e -> deal(gameArea, GameConfig.intermediate()));
-    MenuItem menuExpert = new MenuItem("Expert");
+    MenuItem menuExpert = new MenuItem(Lang.t("Expert"));
     menuExpert.setOnAction(e -> deal(gameArea, GameConfig.expert()));
     
-    Menu menuEdit = new Menu("Edit");
-    menuEdit.getItems().addAll(menuBeginner, menuIntermediate, menuExpert);
+    Menu menuOptions = new Menu(Lang.t("Options"));
+    menuOptions.getItems().addAll(menuBeginner, menuIntermediate, menuExpert);
     
-    menuBar.getMenus().addAll(menuFile, menuEdit);
+    // -- GAME --
+    menuNew.setOnAction(e -> deal(gameArea, lastGameConfig.orElse(GameConfig.beginner())));
+    Menu menuGame = new Menu(Lang.t("Game"));
+    menuGame.getItems().addAll(menuNew, menuOptions, new SeparatorMenuItem(), menuQuit);
+    menuBar.getMenus().addAll(menuGame);
     
     rootBorderPane.setTop(menuBar);
     
@@ -85,7 +88,7 @@ public class Main extends Application {
     HBox statusBar = new HBox();
     statusBar.setBackground(new Background(new BackgroundFill(
         Color.LIGHTGREY, CornerRadii.EMPTY, Insets.EMPTY)));
-    Text durationStatusText = new Text(" Time:");
+    Text durationStatusText = new Text(" " + Lang.t("Time") + ":");
     durationStatusText.setFont(Font.font("Verdana", 20));
     durationStatusText.setFill(Color.RED);
     statusBar.getChildren().add(durationStatusText);
@@ -94,8 +97,9 @@ public class Main extends Application {
       @Override
       public void run() {
         Platform.runLater(() -> {
-          if (currentGame.isPresent() && currentGame.get().isRunning()) {
-            durationStatusText.setText(" Time: " + currentGame.get().calcDuration());
+          if (currentGame.isPresent()) {
+            durationStatusText.setText(" "
+                + String.format(Lang.t("Time"), currentGame.get().calcDuration()));
           }
         });
       }
@@ -135,28 +139,64 @@ public class Main extends Application {
   private EventHook onFinish = (e) -> {
     Stage dialogStage = new Stage();
     dialogStage.initModality(Modality.WINDOW_MODAL);
-    
-    String winStr = e == Game.FINISH_FAIL ? "lost" : "won";
+    Long duration = currentGame.get().calcDuration();
+    String recordString = getRecord(e, duration, lastGameConfig.get().type);
+    String winStr = e == Game.FINISH_FAIL ? Lang.t("You_lost") : Lang.t("You_won");
     Alert alert = new Alert(AlertType.NONE,
-        "You " + winStr + "!\n\nTime: " + currentGame.get().calcDuration()
-            + " seconds\n\nAgain?",
+        winStr + "\n\n"
+            + String.format(Lang.t("Time"), duration) + "\n"
+            + recordString + "\n\n"
+            + Lang.t("Again?"),
         ButtonType.OK,
         ButtonType.CLOSE);
     alert.showAndWait()
         .ifPresent(response -> {
-      if (response == ButtonType.OK) {
-        menuNew.fire();
-      }
-      else if (response == ButtonType.CLOSE) {
-        byebye();
-      }
-    });
+          if (response == ButtonType.OK) {
+            menuNew.fire();
+          }
+            else if (response == ButtonType.CLOSE) {
+              byebye();
+            }
+          });
   };
   
   @Override
   public void stop() throws Exception {
     super.stop();
     byebye();
+  }
+  
+  private String getRecord(int e, long duration, GameConfig.Type gameType) {
+    // we don't store records for custom games
+    if (gameType != GameConfig.Type.CUSTOM) {
+      String recordKey = "record_" + gameType;
+      String recordTimestampKey = "recordTimestamp_" + gameType;
+      Optional<Long> record = DB.getLong(recordKey);
+      Optional<Long> recordTimestamp = DB.getLong(recordTimestampKey);
+      if (e == Game.FINISH_SUCCESS) {
+        // check if new record
+        if (!record.isPresent() || duration < record.get()) {
+          ZonedDateTime now = ZonedDateTime.now();
+          record = Optional.of(duration);
+          recordTimestamp = Optional.of(now.toEpochSecond());
+          DB.put(recordTimestampKey, recordTimestamp.get());
+          DB.put(recordKey, record.get());
+        }
+      }
+      
+      if (record.isPresent()) {
+        String recordString = String.format(Lang.t("Record"), record.get());
+        if (recordTimestamp.isPresent()) {
+          LocalDateTime local = LocalDateTime.ofInstant(
+              Instant.ofEpochSecond(recordTimestamp.get()),
+              ZoneId.systemDefault());
+          String dateStr = DateTimeFormatter.ofPattern("dd.MM.YYYY HH:mm:ss").format(local);
+          recordString += "\t" + String.format(Lang.t("Record_Time"), dateStr);
+        }
+        return recordString;
+      }
+    }
+    return "";
   }
   
   public static void byebye() {

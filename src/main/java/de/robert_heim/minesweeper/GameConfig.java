@@ -1,28 +1,39 @@
 package de.robert_heim.minesweeper;
 
 public class GameConfig {
-  public int cols;
+  final public int cols;
   
-  public int rows;
+  final public int rows;
   
-  public int mines;
+  final public int mines;
+  
+  final public Type type;
   
   public GameConfig(int cols, int rows, int mines) {
+    this(cols, rows, mines, Type.CUSTOM);
+  }
+  
+  private GameConfig(int cols, int rows, int mines, Type type) {
     this.cols = cols;
     this.rows = rows;
     this.mines = mines;
+    this.type = type;
+  }
+  
+  public enum Type {
+    BEGINNER, INTERMEDIATE, EXPERT, CUSTOM
   }
   
   public static GameConfig beginner() {
-    return new GameConfig(7, 9, 9);
+    return new GameConfig(9, 9, 10, Type.BEGINNER);
   }
   
   public static GameConfig intermediate() {
-    return new GameConfig(20, 15, 40);
+    return new GameConfig(16, 16, 40, Type.INTERMEDIATE);
   }
   
   public static GameConfig expert() {
-    return new GameConfig(40, 20, 99);
+    return new GameConfig(30, 16, 99, Type.EXPERT);
   }
   
 }

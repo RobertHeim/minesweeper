@@ -26,7 +26,7 @@ public class Field extends Group {
   private int touchingMines = 0;
   
   private Text text;
-
+  
   private Rectangle rectangle;
   
   public Field(int x, int y) {
@@ -48,6 +48,7 @@ public class Field extends Group {
     text.setTextOrigin(VPos.CENTER);
     text.setStyle("-fx-font-weight:bold");
     text.setFont(Font.font("Verdana", 20));
+    text.setVisible(false);
     getChildren().add(text);
     
   }
@@ -96,6 +97,7 @@ public class Field extends Group {
   
   public void setMine(boolean mine) {
     this.mine = mine;
+    text.setText("X");
   }
   
   public int getTouchingMines() {
@@ -104,73 +106,44 @@ public class Field extends Group {
   
   public void setTouchingMines(int touchingMines) {
     this.touchingMines = touchingMines;
-  }
-  
-  public void revealMine() {
-    if (mine) {
-      text.setText("X");
+    if (!mine) {
+      text.setText("" + touchingMines);
+      switch (touchingMines) {
+        case 1:
+          text.setFill(Color.BLUE);
+          break;
+        case 2:
+          text.setFill(Color.BLUE);
+          break;
+        case 3:
+          text.setFill(Color.RED);
+          break;
+        case 4:
+          text.setFill(Color.PURPLE);
+          break;
+        case 5:
+          text.setFill(Color.DARKBLUE);
+          break;
+        case 6:
+          text.setFill(Color.LIGHTBLUE);
+          break;
+        default:
+          text.setFill(Color.BLACK);
+          break;
+      }
     }
   }
-
-  public void reveal(Field[][] allFields) {
+  
+  public void reveal() {
     if (!revealed) {
       revealed = true;
+      if (0 != touchingMines || mine) {
+        text.setVisible(true);
+      }
       if (mine) {
         rectangle.setFill(Color.RED);
-        text.setText("X");
       }
       else {
-        touchingMines = 0;
-        int minX = x > 0 ? x - 1 : x;
-        int maxX = x >= allFields.length - 1 ? x : x + 1;
-        int minY = y > 0 ? y - 1 : y;
-        int maxY = y >= allFields[0].length - 1 ? y : y + 1;
-        for (int xCheck = minX; xCheck <= maxX; xCheck++) {
-          for (int yCheck = minY; yCheck <= maxY; yCheck++) {
-            if (x != xCheck || y != yCheck) {
-              if (allFields[xCheck][yCheck].isMine()) {
-                touchingMines++;
-              }
-            }
-          }
-        }
-        // touching == 0 -> reveal touching fields
-        if (touchingMines == 0) {
-          for (int xCheck = minX; xCheck <= maxX; xCheck++) {
-            for (int yCheck = minY; yCheck <= maxY; yCheck++) {
-              if (x != xCheck || y != yCheck) {
-                allFields[xCheck][yCheck].reveal(allFields);
-              }
-            }
-          }
-        }
-        text.setText("" + touchingMines);
-        switch (touchingMines) {
-          case 0:
-            text.setVisible(false);
-            break;
-          case 1:
-            text.setFill(Color.BLUE);
-            break;
-          case 2:
-            text.setFill(Color.BLUE);
-            break;
-          case 3:
-            text.setFill(Color.RED);
-            break;
-          case 4:
-            text.setFill(Color.PURPLE);
-            break;
-          case 5:
-            text.setFill(Color.DARKBLUE);
-            break;
-          case 6:
-            text.setFill(Color.LIGHTBLUE);
-            break;
-          default:
-            text.setFill(Color.BLACK);
-            break;
-        }
         rectangle.setFill(Color.LIGHTGRAY);
       }
     }
